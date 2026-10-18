@@ -214,7 +214,7 @@ final class TodoStore: ObservableObject {
         }
     }
 
-    /// Removes images and files TodoBar copied in, once no todo refers to them any more.
+    /// Removes images and files Menial copied in, once no todo refers to them any more.
     /// Anything outside its own folders (files you linked by hand) is never touched.
     private func deleteFilesIfUnused(_ paths: [String]) {
         let folders = Set([imagesDirectory, filesDirectory].map { $0.standardizedFileURL.path })
@@ -303,7 +303,7 @@ final class TodoStore: ObservableObject {
         guard modificationDate() != knownModificationDate else { return }
         load()
         // Commits edits made in other apps; a no-op when git itself changed the file.
-        git.record("Edit outside TodoBar")
+        git.record("Edit outside Menial")
     }
 
     private func modificationDate() -> Date? {

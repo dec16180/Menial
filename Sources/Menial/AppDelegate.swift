@@ -67,8 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let main = NSMenu()
 
         let app = NSMenu()
-        app.addItem(withTitle: "Quit TodoBar", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        main.addItem(withTitle: "TodoBar", action: nil, keyEquivalent: "").submenu = app
+        app.addItem(withTitle: "Quit Menial", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        main.addItem(withTitle: "Menial", action: nil, keyEquivalent: "").submenu = app
 
         let file = NSMenu(title: "File")
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")

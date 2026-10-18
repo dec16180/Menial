@@ -168,7 +168,7 @@ enum FilePanels {
     static func chooseExisting() -> URL? {
         let panel = NSOpenPanel()
         panel.title = "Choose your todo file"
-        panel.message = "Pick a Markdown file. TodoBar reads and writes its checklist items."
+        panel.message = "Pick a Markdown file. Menial reads and writes its checklist items."
         panel.allowedContentTypes = markdownTypes
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false

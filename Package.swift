@@ -2,12 +2,12 @@
 import PackageDescription
 
 let package = Package(
-    name: "TodoBar",
+    name: "Menial",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "TodoBar",
-            path: "Sources/TodoBar"
+            name: "Menial",
+            path: "Sources/Menial"
         )
     ]
 )

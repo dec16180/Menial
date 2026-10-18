@@ -11,6 +11,18 @@ enum Prefs {
 
     private static var defaults: UserDefaults { .standard }
 
+    /// The app was called TodoBar (bundle ID local.todobar.app). Renaming it changed
+    /// the settings domain, so copy the old settings over once.
+    static func migrateFromTodoBar() {
+        let doneKey = "migratedFromTodoBar"
+        guard !defaults.bool(forKey: doneKey) else { return }
+        defaults.set(true, forKey: doneKey)
+        guard let old = UserDefaults(suiteName: "local.todobar.app") else { return }
+        for key in [filePathKey, gitAutoCommitKey, gitSyncKey] where defaults.object(forKey: key) == nil {
+            if let value = old.object(forKey: key) { defaults.set(value, forKey: key) }
+        }
+    }
+
     static var fileURL: URL {
         let raw = defaults.string(forKey: filePathKey) ?? defaultFilePath
         return URL(fileURLWithPath: (raw as NSString).expandingTildeInPath)

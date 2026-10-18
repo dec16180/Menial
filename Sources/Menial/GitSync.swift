@@ -192,7 +192,7 @@ final class GitSync: ObservableObject {
     private func identityArgs(_ root: URL) async -> [String] {
         let email = await run(["config", "user.email"], in: root)
         if email.ok, !email.out.isEmpty { return [] }
-        return ["-c", "user.name=TodoBar", "-c", "user.email=todobar@localhost"]
+        return ["-c", "user.name=Menial", "-c", "user.email=menial@localhost"]
     }
 
     private static func subject(_ changes: [String]) -> String {
