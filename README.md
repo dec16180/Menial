@@ -13,7 +13,7 @@ A small native macOS menu bar todo list. Your todos live in a plain Markdown fil
 - **Details window per todo** — click a todo (anywhere but its circle) to open a window with:
   - **Notes**: as much free text as you like,
   - **Subtasks**: a checklist of smaller steps,
-  - **Images**: drag them in, paste a screenshot, or use Add Images…
+  - **Images**: drag them in, paste a screenshot, or use Add Images…; thumbnails show the whole image, and a click opens a large preview (right-click → Open in Preview for the Preview app)
   - **Attachments**: any file (PDFs, spreadsheets, documents, even folders) — drag them in or use Add Files…; click one to open it.
   Dropped or pasted images go to Images, everything else to Attachments. The row in the menu shows small icons for what's inside (e.g. ☑ 2/5, 🖼 3, 📎 2); click them to open the window.
 - **Git history** — when the todo file is in a git repository, Menial commits it (and its images) after each change, with messages like `Complete “Renew passport”`. Optionally pulls and pushes to a remote.
@@ -113,6 +113,7 @@ Sources/Menial/
   TodoDetailView.swift        details window: priority, notes, subtasks, images
   PriorityViews.swift         priority colors and the 1/2/3 picker
   DetailWindows.swift         opens one details window per todo
+  ImagePreviewWindows.swift   large preview window for an attached image
   SettingsView.swift          file picker, git options, launch at login
   TodoStore.swift             state, saving, file watching, images
   GitSync.swift               batched commits, pull/push

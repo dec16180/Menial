@@ -138,7 +138,7 @@ struct TodoDetailView: View {
                             .foregroundStyle(.tertiary)
                     )
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 10)], spacing: 10) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
                     ForEach(item.images, id: \.self) { path in
                         ImageThumb(url: store.imageURL(path)) { store.removeImage(item.id, path) }
                     }
@@ -347,12 +347,17 @@ private struct ImageThumb: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
+            // The whole image, scaled to fit: cropping to a square made wide
+            // screenshots unrecognisable.
             thumbnail
-                .frame(width: 100, height: 100)
+                .frame(maxWidth: .infinity)
+                .frame(height: 100)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .contentShape(Rectangle())
-                .onTapGesture { NSWorkspace.shared.open(url) }
-                .help(failed ? "Missing: \(url.path)" : "Click to open \(url.lastPathComponent)")
+                .onTapGesture { if !failed { ImagePreviewWindows.shared.show(url) } }
+                .help(failed ? "Missing: \(url.path)" : "Click to preview \(url.lastPathComponent)")
 
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
@@ -367,7 +372,8 @@ private struct ImageThumb: View {
         }
         .onHover { hovering = $0 }
         .contextMenu {
-            Button("Open") { NSWorkspace.shared.open(url) }
+            Button("Preview") { ImagePreviewWindows.shared.show(url) }
+            Button("Open in Preview") { NSWorkspace.shared.open(url) }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
             Divider()
             Button("Remove", role: .destructive, action: onRemove)
@@ -384,10 +390,10 @@ private struct ImageThumb: View {
         if let image {
             Image(decorative: image, scale: 2)
                 .resizable()
-                .scaledToFill()
+                .scaledToFit()
+                .padding(4)
         } else {
-            Rectangle()
-                .fill(Color.primary.opacity(0.06))
+            Color.clear
                 .overlay(
                     Image(systemName: failed ? "exclamationmark.triangle" : "photo")
                         .foregroundStyle(.secondary)
