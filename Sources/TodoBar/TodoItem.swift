@@ -42,6 +42,16 @@ struct TodoItem: Identifiable, Equatable {
     /// Any other indented text under the todo (your notes), without its indentation.
     var notes: String = ""
 
+    /// True when every word of `query` appears in the title, notes, a subtask or an
+    /// attachment name, ignoring case and accents. "!1" matches priority 1.
+    func matches(_ query: String) -> Bool {
+        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return true }
+        let fields = [text, notes] + subtasks.map(\.text) + attachments.map(\.name)
+            + (priority.map { ["!\($0.rawValue)"] } ?? [])
+        return words.allSatisfy { word in fields.contains { $0.localizedStandardContains(word) } }
+    }
+
     var hasDetails: Bool {
         !subtasks.isEmpty || !images.isEmpty || !attachments.isEmpty || !notes.isEmpty
     }

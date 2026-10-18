@@ -7,6 +7,7 @@ A small native macOS menu bar todo list. Your todos live in a plain Markdown fil
 - **Menu bar only** — a checklist icon in the top bar, no Dock icon. Click it, type, press Return.
 - **Markdown file as the database** — defaults to `~/Documents/Todos.md`. Edit it in any editor (Obsidian, VS Code, iA Writer…); TodoBar notices changes within a couple of seconds.
 - **Priorities 1–3** — 1 (red, high), 2 (orange, medium), 3 (blue, low). Open todos sort themselves: 1 → 2 → 3 → no priority, newest first within each. Set it by ending a todo with `!1`, `!2` or `!3` as you type, via right-click → Priority, or with the chips in the details window (click the selected chip again to clear it).
+- **Search** — click 🔍 in the header (or press ⌘F) and type to filter the list. It searches titles, notes, subtasks and attachment names, ignoring case and accents (`steuererklarung` finds “Steuererklärung”); several words must all match, and `!1` finds priority-1 todos. Matching done todos are shown too. Esc closes the search.
 - **Details window per todo** — click a todo (anywhere but its circle) to open a window with:
   - **Notes**: as much free text as you like,
   - **Subtasks**: a checklist of smaller steps,

@@ -9,6 +9,13 @@ struct ContentView: View {
     @ViewState private var showDone = false
     @ViewState private var listHeight: CGFloat = 0
     @FocusState private var addFieldFocused: Bool
+    @ViewState private var searching = false
+    @ViewState private var query = ""
+    @FocusState private var searchFocused: Bool
+
+    private var isFiltering: Bool { searching && !query.trimmingCharacters(in: .whitespaces).isEmpty }
+    private var visibleOpen: [TodoItem] { isFiltering ? store.openItems.filter { $0.matches(query) } : store.openItems }
+    private var visibleDone: [TodoItem] { isFiltering ? store.doneItems.filter { $0.matches(query) } : store.doneItems }
 
     var body: some View {
         Group {
@@ -30,6 +37,11 @@ struct ContentView: View {
             addField
                 .padding(.horizontal, 12)
                 .padding(.bottom, 10)
+            if searching {
+                searchField
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 10)
+            }
             Divider()
             list
             if let message = store.errorMessage {
@@ -50,6 +62,16 @@ struct ContentView: View {
             }
             Spacer()
             HStack(spacing: 2) {
+                IconButton(searching ? "magnifyingglass.circle.fill" : "magnifyingglass", help: "Search todos (⌘F)") {
+                    toggleSearch()
+                }
+                .background(
+                    // Invisible button that carries the ⌘F shortcut.
+                    Button("", action: toggleSearch)
+                        .keyboardShortcut("f", modifiers: .command)
+                        .opacity(0)
+                        .frame(width: 0, height: 0)
+                )
                 IconButton("doc.text", help: "Open the Markdown file") {
                     store.openInEditor()
                 }
@@ -64,6 +86,10 @@ struct ContentView: View {
     }
 
     private var summary: String {
+        if isFiltering {
+            let found = visibleOpen.count + visibleDone.count
+            return found == 0 ? "No matches" : "\(found) match\(found == 1 ? "" : "es")"
+        }
         let open = store.openItems.count
         let done = store.doneItems.count
         if open == 0 && done == 0 { return "Nothing here yet" }
@@ -93,6 +119,48 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Search
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search titles, notes, subtasks, files", text: $query)
+                .textFieldStyle(.plain)
+                .focused($searchFocused)
+                .onExitCommand(perform: closeSearch)
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                    searchFocused = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Clear search")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.15)))
+    }
+
+    private func toggleSearch() {
+        if searching {
+            closeSearch()
+        } else {
+            searching = true
+            Task { @MainActor in searchFocused = true }
+        }
+    }
+
+    private func closeSearch() {
+        searching = false
+        query = ""
+        addFieldFocused = true
+    }
+
     private func submit() {
         store.add(draft)
         draft = ""
@@ -103,19 +171,21 @@ struct ContentView: View {
     private var list: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                if store.openItems.isEmpty {
-                    emptyState
+                if isFiltering && visibleOpen.isEmpty && visibleDone.isEmpty {
+                    noMatches
+                } else if visibleOpen.isEmpty {
+                    if !isFiltering { emptyState }
                 } else {
-                    ForEach(store.openItems) { item in
+                    ForEach(visibleOpen) { item in
                         TodoRow(item: item)
                     }
                 }
-                if !store.doneItems.isEmpty {
+                if !visibleDone.isEmpty {
                     doneSection
                 }
             }
             .padding(.vertical, 6)
-            .animation(.easeOut(duration: 0.2), value: store.openItems.map(\.id))
+            .animation(.easeOut(duration: 0.2), value: visibleOpen.map(\.id))
             .background(
                 GeometryReader { proxy in
                     Color.clear.preference(key: ContentHeightKey.self, value: proxy.size.height)
@@ -139,6 +209,24 @@ struct ContentView: View {
         .padding(.vertical, 16)
     }
 
+    private var noMatches: some View {
+        VStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            Text("No todos match “\(query.trimmingCharacters(in: .whitespaces))”")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 12)
+    }
+
+    /// While searching, matching done todos are shown without having to expand the section.
+    private var doneExpanded: Bool { showDone || isFiltering }
+
     private var doneSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -148,16 +236,18 @@ struct ContentView: View {
                     HStack(spacing: 5) {
                         Image(systemName: "chevron.right")
                             .font(.caption2.weight(.bold))
-                            .rotationEffect(.degrees(showDone ? 90 : 0))
-                        Text("Done (\(store.doneItems.count))")
+                            .rotationEffect(.degrees(doneExpanded ? 90 : 0))
+                        Text("Done (\(visibleDone.count))")
                     }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(isFiltering)
                 Spacer()
-                if showDone {
+                // Hidden while searching: Clear removes every done todo, not just the matches.
+                if showDone && !isFiltering {
                     Button("Clear") { store.clearDone() }
                         .buttonStyle(.plain)
                         .font(.caption)
@@ -169,8 +259,8 @@ struct ContentView: View {
             .padding(.top, 10)
             .padding(.bottom, 4)
 
-            if showDone {
-                ForEach(store.doneItems) { item in
+            if doneExpanded {
+                ForEach(visibleDone) { item in
                     TodoRow(item: item)
                 }
             }
