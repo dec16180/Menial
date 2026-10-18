@@ -309,13 +309,8 @@ struct ContentView: View {
 
             Spacer()
 
-            Button("Quit") {
-                // Let a pending git commit finish first.
-                Task { @MainActor in
-                    await store.git.flush()
-                    NSApp.terminate(nil)
-                }
-            }
+            // AppDelegate finishes a pending git commit before quitting.
+            Button("Quit") { NSApp.terminate(nil) }
                 .buttonStyle(.plain)
                 .font(.caption)
                 .foregroundStyle(.secondary)

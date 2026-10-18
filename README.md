@@ -104,7 +104,8 @@ Settings:
 Package.swift
 Resources/Info.plist          app bundle metadata (LSUIElement = menu bar only)
 Sources/TodoBar/
-  TodoBarApp.swift            app entry, menu bar icon + popover
+  main.swift                  app entry point (plain AppKit, no SwiftUI scenes)
+  AppDelegate.swift           menu bar icon, popover, keyboard-shortcut menu
   ContentView.swift           popover: header, add field, list, footer
   TodoRow.swift               one todo: checkbox, inline edit, details icons
   TodoDetailView.swift        details window: priority, notes, subtasks, images
