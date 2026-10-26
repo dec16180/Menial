@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Christopher De Nicolo
+
+SPDX-License-Identifier: MIT
+-->
+
 # Menial
 
 *A menu bar home for your menial tasks.*
@@ -123,3 +129,11 @@ Sources/Menial/
   ViewState.swift             @State stand-in that builds with the Command Line Tools
 build.sh                      builds Menial.app (and installs with --install)
 ```
+
+## License
+
+Menial is free software under the [MIT License](LICENSE), © 2026 Christopher De Nicolo.
+
+The project follows the [REUSE](https://reuse.software) standard: every file carries an SPDX copyright and license header, and the license text lives in [`LICENSES/`](LICENSES/). Check compliance with `reuse lint`.
+
+Not affiliated with Apple or with any editor or service mentioned in this README.

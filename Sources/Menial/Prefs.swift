@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Christopher De Nicolo
+//
+// SPDX-License-Identifier: MIT
+
 import Foundation
 
 /// UserDefaults keys and their defaults. Views bind to the same keys with

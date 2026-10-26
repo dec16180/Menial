@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Christopher De Nicolo
+//
+// SPDX-License-Identifier: MIT
+
 import AppKit
 import ImageIO
 import SwiftUI

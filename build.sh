@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 Christopher De Nicolo
+#
+# SPDX-License-Identifier: MIT
+
 # Builds Menial.app from source.
 #   ./build.sh            → build/Menial.app
 #   ./build.sh --install  → also copies it to /Applications and launches it

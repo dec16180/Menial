@@ -1,4 +1,8 @@
 // swift-tools-version:5.9
+// SPDX-FileCopyrightText: 2026 Christopher De Nicolo
+//
+// SPDX-License-Identifier: MIT
+
 import PackageDescription
 
 let package = Package(

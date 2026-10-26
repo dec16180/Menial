@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Christopher De Nicolo
+//
+// SPDX-License-Identifier: MIT
+
 import AppKit
 
 // Plain AppKit entry point. A SwiftUI `App` needs at least one scene, and its
