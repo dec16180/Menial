@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Keeps a history of the todo file in git. After each change (batched for a few
 /// seconds, so typing notes makes one commit) it commits the todo file and its
@@ -13,6 +14,9 @@ final class GitSync: ObservableObject {
     @Published private(set) var lastCommit: Date?
     /// The last git failure, shown in Settings.
     @Published private(set) var lastError: String?
+    /// macOS privacy protection kept git out of the todo folder (common for
+    /// cloud-storage folders, and again after the app is renamed or re-signed).
+    @Published private(set) var accessDenied = false
 
     private var file: URL?
     private var folders: [URL] = []
@@ -22,6 +26,7 @@ final class GitSync: ObservableObject {
     private var debounce: Task<Void, Never>?
     private var queue: Task<Void, Never>?
     private var pullTimer: Timer?
+    private var lastRefresh = Date.distantPast
 
     static let commitDelay: Duration = .seconds(3)
     static let pullInterval: TimeInterval = 5 * 60
@@ -44,10 +49,19 @@ final class GitSync: ObservableObject {
         self.file = file
         self.folders = folders
         pendingChanges = []
+        lastRefresh = Date()
         enqueue { [weak self] in
             await self?.detectRepository()
             self?.pullIfSyncing()
         }
+    }
+
+    /// Looks for the repository again, e.g. after access was granted in System
+    /// Settings. Called when the popover or Settings opens; cheap and throttled.
+    func refresh() {
+        guard file != nil, Date().timeIntervalSince(lastRefresh) > 5 else { return }
+        lastRefresh = Date()
+        enqueue { [weak self] in await self?.detectRepository() }
     }
 
     /// Notes a change; a commit follows once things are quiet for a moment.
@@ -118,11 +132,25 @@ final class GitSync: ObservableObject {
             return
         }
         let top = await run(["rev-parse", "--show-toplevel"], in: folder)
+        let wasFound = repoRoot != nil
         repoRoot = top.ok ? URL(fileURLWithPath: top.out, isDirectory: true) : nil
-        if let repoRoot {
-            hasRemote = await !run(["remote"], in: repoRoot).out.isEmpty
-        } else {
+        accessDenied = !top.ok && top.err.contains("Operation not permitted")
+        if top.ok || accessDenied {
+            if lastError?.hasPrefix("Couldn't check") == true { lastError = nil }
+        } else if !top.err.lowercased().contains("not a git repository") {
+            // "Not a git repository" is the normal answer for a plain folder; anything
+            // else (ownership, a broken git…) is shown in Settings.
+            fail("Couldn't check for a git repository", top)
+        }
+        guard let repoRoot else {
             hasRemote = false
+            return
+        }
+        hasRemote = await !run(["remote"], in: repoRoot).out.isEmpty
+        // Changes made while git was out of reach (or while the app wasn't running)
+        // weren't committed; pick them up now. A no-op when nothing changed.
+        if !wasFound, Prefs.gitAutoCommit {
+            await commit(["Save uncommitted changes"])
         }
     }
 
@@ -231,7 +259,17 @@ final class GitSync: ObservableObject {
         return env
     }()
 
+    private static let log = Logger(subsystem: "local.menial.app", category: "git")
+
     private func run(_ args: [String], in directory: URL) async -> GitResult {
+        let result = await execute(args, in: directory)
+        if !result.ok {
+            Self.log.error("git \(args.joined(separator: " "), privacy: .public) in \(directory.path, privacy: .public) failed (\(result.status)): \(result.err, privacy: .public)")
+        }
+        return result
+    }
+
+    private func execute(_ args: [String], in directory: URL) async -> GitResult {
         guard let exe = Self.executable else {
             return GitResult(status: -1, out: "", err: "git isn't installed. Run `xcode-select --install`.")
         }

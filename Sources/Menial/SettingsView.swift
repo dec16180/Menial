@@ -101,6 +101,22 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+            } else if git.accessDenied {
+                Label("macOS isn't letting Menial's git into “\(folderName)”.", systemImage: "lock.fill")
+                    .font(.callout)
+                Text("Allow Menial to access this folder — answer the macOS prompt with Allow, or turn Menial on in System Settings → Privacy & Security → Files & Folders. This happens for cloud-storage folders and after the app is renamed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button("Open Privacy Settings") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    Button("Check Again") { git.refresh() }
+                        .disabled(git.working)
+                }
             } else {
                 Text("\(store.fileURL.lastPathComponent) isn't in a git repository.")
                     .font(.callout)
@@ -122,6 +138,7 @@ struct SettingsView: View {
             }
         } header: {
             Text("Git history")
+                .onAppear { git.refresh() }
         } footer: {
             Text(git.hasRemote || git.repoRoot == nil
                 ? "Only the todo file and its images and files folders are committed; other files in the repository are left alone."

@@ -57,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             NSApp.activate(ignoringOtherApps: true)
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            store.git.refresh()
             popover.contentViewController?.view.window?.makeKey()
         }
     }
