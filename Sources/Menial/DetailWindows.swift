@@ -21,7 +21,11 @@ final class DetailWindows: NSObject, NSWindowDelegate {
             return
         }
 
-        let hosting = NSHostingController(rootView: TodoDetailView(itemID: id).environmentObject(store))
+        let hosting = NSHostingController(
+            rootView: TodoDetailView(itemID: id)
+                .environmentObject(store)
+                .environmentObject(store.reminders)
+        )
         hosting.sizingOptions = []
         let window = NSWindow(contentViewController: hosting)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]

@@ -61,7 +61,7 @@ struct TodoDetailView: View {
             } label: {
                 Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20))
-                    .foregroundStyle(item.priority?.color ?? (item.isDone ? Color.accentColor : Color.secondary))
+                    .foregroundStyle(item.shownPriority?.color ?? (item.isDone ? Color.accentColor : Color.secondary))
             }
             .buttonStyle(.plain)
             .help(item.isDone ? "Mark as open" : "Mark as done")
@@ -71,6 +71,7 @@ struct TodoDetailView: View {
                     .font(.title3.weight(.semibold))
                     .strikethrough(item.isDone, color: .secondary)
                 PriorityPicker(selection: item.priority) { store.setPriority(item.id, $0) }
+                ReminderPicker(selection: item.reminder) { store.setReminder(item.id, $0) }
             }
         }
     }

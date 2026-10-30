@@ -15,7 +15,8 @@ A small native macOS menu bar todo list. Your todos live in a plain Markdown fil
 - **Menu bar only** — a checklist icon in the top bar, no Dock icon. Click it, type, press Return.
 - **Markdown file as the database** — defaults to `~/Documents/Todos.md`. Edit it in any editor (Obsidian, VS Code, iA Writer…); Menial notices changes within a couple of seconds.
 - **Priorities 1–3** — 1 (red, high), 2 (orange, medium), 3 (blue, low). Open todos sort themselves: 1 → 2 → 3 → no priority, newest first within each. Set it by ending a todo with `!1`, `!2` or `!3` as you type, via right-click → Priority, or with the chips in the details window (click the selected chip again to clear it).
-- **Search** — click 🔍 in the header (or press ⌘F) and type to filter the list. It searches titles, notes, subtasks and attachment names, ignoring case and accents (`steuererklarung` finds “Steuererklärung”); several words must all match, and `!1` finds priority-1 todos. Matching done todos are shown too. Esc closes the search.
+- **Reminders** — set a date and time in the details window, via right-click → Remind Me, or by ending a todo with `@2026-11-02` (9:00 that day) or `@2026-11-02T14:30` as you type. macOS shows a notification then (it asks for permission the first time); clicking it opens the todo. The date appears in the row. Once it has passed, the todo counts as high priority: it moves to the top and turns red until you check it off, clear the reminder or move it to a later date. Its own priority stays in the file and the details window, and is back after that. Times are local, and a reminder that passed while Menial wasn't running only shows up in red.
+- **Search** — click 🔍 in the header (or press ⌘F) and type to filter the list. It searches titles, notes, subtasks and attachment names, ignoring case and accents (`steuererklarung` finds “Steuererklärung”); several words must all match, `!1` finds priority-1 todos and `@2026-11` finds reminders in that month. Matching done todos are shown too. Esc closes the search.
 - **Details window per todo** — click a todo (anywhere but its circle) to open a window with:
   - **Notes**: as much free text as you like,
   - **Subtasks**: a checklist of smaller steps,
@@ -48,7 +49,7 @@ The first time it reads `~/Documents`, macOS asks for permission — allow it (o
 # Todos
 
 - [ ] Book a dental cleaning for next week !1
-- [ ] Draft the Q4 budget proposal !2
+- [ ] Draft the Q4 budget proposal !2 @2026-11-02T09:00
   - [x] Export last year's numbers
   - [ ] List what changed
 
@@ -65,6 +66,7 @@ The first time it reads `~/Documents`, macOS asks for permission — allow it (o
 
 - `- [ ]` / `- [x]` lines are todos. Open ones are written under `# Todos`, finished ones under `## Done`.
 - A trailing `!1`, `!2` or `!3` is the priority. Menial writes open todos in priority order.
+- A trailing `@2026-11-02T09:00` is the reminder, in local time. `@2026-11-02` also works and means 9:00; Menial writes it back in the full form.
 - Indented `- [ ]` lines are subtasks.
 - Indented `![](path)` lines are images. Menial copies attached images into a `Todos-images` folder next to the file (named after your file) and links them relatively, so Obsidian and other editors show them too. Removing an image or deleting its todo deletes the copy; images you linked by hand from elsewhere are never deleted.
 - Indented `- [name](path)` lines are attachments. Files are copied into a `Todos-files` folder next to the todo file under their original name (`Report 2.pdf` if the name is taken). Removing an attachment or deleting its todo deletes the copy. Web links (`https://…`) stay part of the notes.
@@ -104,6 +106,7 @@ Settings:
 
 - **"git push failed: … Permission denied / could not read Username"** — run `git push` once in Terminal inside the repository and fix authentication there.
 - **"git pull failed"** — usually a conflict with a change made on another Mac. Open Terminal in the repository, run `git pull --rebase`, resolve, and commit.
+- **Reminders don't notify** — check System Settings → Notifications → Menial. The details window shows a shortcut there when notifications are off. macOS also refuses notifications for an app run from a temporary folder.
 - **Nothing happens in the menu bar** — with a crowded menu bar, macOS hides overflow icons behind the notch; quit a few menu bar apps or use a menu bar manager.
 
 ## Project layout
@@ -118,6 +121,8 @@ Sources/Menial/
   TodoRow.swift               one todo: checkbox, inline edit, details icons
   TodoDetailView.swift        details window: priority, notes, subtasks, images
   PriorityViews.swift         priority colors and the 1/2/3 picker
+  ReminderViews.swift         reminder date in the row and the details window
+  Reminders.swift             schedules macOS notifications for reminders
   DetailWindows.swift         opens one details window per todo
   ImagePreviewWindows.swift   large preview window for an attached image
   SettingsView.swift          file picker, git options, launch at login

@@ -39,6 +39,8 @@ struct TodoItem: Identifiable, Equatable {
     var text: String
     var isDone: Bool = false
     var priority: Priority? = nil
+    /// When to notify, in local time. Stored as a trailing `@2026-11-02T09:00` on the todo line.
+    var reminder: Date? = nil
     var subtasks: [Subtask] = []
     /// Image paths as written in `  ![](path)` lines, usually relative to the todo file.
     var images: [String] = []
@@ -47,17 +49,28 @@ struct TodoItem: Identifiable, Equatable {
     var notes: String = ""
 
     /// True when every word of `query` appears in the title, notes, a subtask or an
-    /// attachment name, ignoring case and accents. "!1" matches priority 1.
+    /// attachment name, ignoring case and accents. "!1" matches priority 1, "@2026-11" a reminder that month.
     func matches(_ query: String) -> Bool {
         let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
         guard !words.isEmpty else { return true }
         let fields = [text, notes] + subtasks.map(\.text) + attachments.map(\.name)
-            + (priority.map { ["!\($0.rawValue)"] } ?? [])
+            + (shownPriority.map { ["!\($0.rawValue)"] } ?? [])
+            + (reminder.map { [MarkdownCodec.reminderTag($0)] } ?? [])
         return words.allSatisfy { word in fields.contains { $0.localizedStandardContains(word) } }
     }
 
+    /// An open todo whose reminder time has come.
+    func isDue(at now: Date = Date()) -> Bool {
+        guard !isDone, let reminder else { return false }
+        return reminder <= now
+    }
+
+    /// A due todo counts as high priority without touching the one stored in the file,
+    /// so the todo's own priority is back once the reminder is moved or cleared.
+    var shownPriority: Priority? { isDue() ? .high : priority }
+
     var hasDetails: Bool {
-        !subtasks.isEmpty || !images.isEmpty || !attachments.isEmpty || !notes.isEmpty
+        reminder != nil || !subtasks.isEmpty || !images.isEmpty || !attachments.isEmpty || !notes.isEmpty
     }
 }
 
@@ -66,7 +79,7 @@ struct TodoItem: Identifiable, Equatable {
 ///     # Todos
 ///
 ///     - [ ] Book a dentist appointment for a cleaning !1
-///     - [ ] Draft the Q4 budget proposal !2
+///     - [ ] Draft the Q4 budget proposal !2 @2026-11-02T09:00
 ///       - [x] Export last year's numbers
 ///       - [ ] List what changed
 ///
@@ -109,8 +122,8 @@ enum MarkdownCodec {
 
             if !indented, let task = parseTask(line) {
                 finish()
-                let split = splitPriority(task.text)
-                current = TodoItem(text: split.text, isDone: task.done, priority: split.priority)
+                let split = splitTags(task.text)
+                current = TodoItem(text: split.text, isDone: task.done, priority: split.priority, reminder: split.reminder)
             } else if trimmed.isEmpty {
                 if current != nil { pendingBlanks += 1 }
             } else if indented, current != nil {
@@ -137,7 +150,8 @@ enum MarkdownCodec {
         var lines = ["# Todos", ""]
 
         func append(_ item: TodoItem) {
-            let tag = item.priority.map { " !\($0.rawValue)" } ?? ""
+            let tag = (item.priority.map { " !\($0.rawValue)" } ?? "")
+                + (item.reminder.map { " \(reminderTag($0))" } ?? "")
             lines.append("- [\(item.isDone ? "x" : " ")] \(singleLine(item.text))\(tag)")
             for sub in item.subtasks {
                 lines.append("  - [\(sub.isDone ? "x" : " ")] \(singleLine(sub.text))")
@@ -200,12 +214,62 @@ enum MarkdownCodec {
         return rest.isEmpty ? (text, nil) : (rest, priority)
     }
 
+    /// "Pay rent @2026-11-02T09:00" → ("Pay rent", that date). Text without a tag comes back unchanged.
+    static func splitReminder(_ text: String) -> (text: String, reminder: Date?) {
+        let parts = text.split(separator: " ", omittingEmptySubsequences: false)
+        guard parts.count > 1, let last = parts.last, let reminder = parseReminder(last) else {
+            return (text, nil)
+        }
+        let rest = parts.dropLast().joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        return rest.isEmpty ? (text, nil) : (rest, reminder)
+    }
+
+    /// Takes the trailing priority and reminder tags off a todo line, in either order.
+    static func splitTags(_ text: String) -> (text: String, priority: Priority?, reminder: Date?) {
+        var rest = text
+        var priority: Priority?
+        var reminder: Date?
+        while true {
+            if priority == nil, case let split = splitPriority(rest), let found = split.priority {
+                (rest, priority) = (split.text, found)
+            } else if reminder == nil, case let split = splitReminder(rest), let found = split.reminder {
+                (rest, reminder) = (split.text, found)
+            } else {
+                return (rest, priority, reminder)
+            }
+        }
+    }
+
+    /// Local time without a zone, so a reminder at 9:00 stays at 9:00 when you travel.
+    private static let reminderFormat: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        return formatter
+    }()
+
+    static func reminderTag(_ date: Date) -> String {
+        "@" + reminderFormat.string(from: date)
+    }
+
+    /// `@2026-11-02T09:00`, or `@2026-11-02` for 9:00 that day → date
+    static func parseReminder(_ tag: Substring) -> Date? {
+        guard tag.first == "@" else { return nil }
+        let value = tag.count == 11 ? tag.dropFirst() + "T09:00" : String(tag.dropFirst())
+        // Comparing the way back rejects dates the formatter bends, like February 30.
+        guard let date = reminderFormat.date(from: value), reminderFormat.string(from: date) == value else { return nil }
+        return date
+    }
+
     /// Priority 1, 2, 3, then todos without one; the existing order is kept within each group.
-    static func byPriority(_ items: [TodoItem]) -> [TodoItem] {
+    /// The file sorts by stored priority, so its order doesn't change just because time passed.
+    static func byPriority(_ items: [TodoItem], using priority: (TodoItem) -> Priority? = \.priority) -> [TodoItem] {
         items.enumerated()
             .sorted { a, b in
-                let ra = a.element.priority?.rawValue ?? 4
-                let rb = b.element.priority?.rawValue ?? 4
+                let ra = priority(a.element)?.rawValue ?? 4
+                let rb = priority(b.element)?.rawValue ?? 4
                 return ra != rb ? ra < rb : a.offset < b.offset
             }
             .map(\.element)

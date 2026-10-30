@@ -13,13 +13,18 @@ final class TodoStore: ObservableObject {
 
     /// Commits the todo file, its images and attachments to git after changes.
     let git = GitSync()
+    /// Schedules a macOS notification for each reminder.
+    let reminders = ReminderScheduler()
 
     private var knownModificationDate: Date?
     private var loadFailed = false
     private var watchTimer: Timer?
     private var renameBursts: [UUID: (origin: String, last: Date)] = [:]
 
-    var openItems: [TodoItem] { MarkdownCodec.byPriority(items.filter { !$0.isDone }) }
+    /// Changes the moment a reminder comes due, so the list re-sorts and recolors by itself.
+    @Published private(set) var dueIDs: Set<UUID> = []
+
+    var openItems: [TodoItem] { MarkdownCodec.byPriority(items.filter { !$0.isDone }, using: \.shownPriority) }
     var doneItems: [TodoItem] { items.filter { $0.isDone } }
     var displayPath: String { (fileURL.path as NSString).abbreviatingWithTildeInPath }
 
@@ -28,15 +33,16 @@ final class TodoStore: ObservableObject {
         load()
         startWatching()
         configureGit()
+        reminders.watch(self)
     }
 
     // MARK: - Editing
 
     func add(_ raw: String) {
-        // Typing "Pay rent !1" sets the priority.
-        let (text, priority) = MarkdownCodec.splitPriority(MarkdownCodec.singleLine(raw))
+        // Typing "Pay rent !1 @2026-11-02" sets the priority and the reminder.
+        let (text, priority, reminder) = MarkdownCodec.splitTags(MarkdownCodec.singleLine(raw))
         guard !text.isEmpty else { return }
-        items.insert(TodoItem(text: text, priority: priority), at: 0)
+        items.insert(TodoItem(text: text, priority: priority, reminder: reminder), at: 0)
         save("Add “\(text)”")
     }
 
@@ -45,7 +51,7 @@ final class TodoStore: ObservableObject {
     }
 
     func rename(_ id: UUID, to raw: String) {
-        let (text, priority) = MarkdownCodec.splitPriority(MarkdownCodec.singleLine(raw))
+        let (text, priority, reminder) = MarkdownCodec.splitTags(MarkdownCodec.singleLine(raw))
         guard !text.isEmpty, let i = items.firstIndex(where: { $0.id == id }) else { return }
 
         // Titles save on every keystroke; remember the title from before this burst
@@ -58,12 +64,21 @@ final class TodoStore: ObservableObject {
 
         items[i].text = text
         if let priority { items[i].priority = priority }
+        if let reminder { items[i].reminder = reminder }
         save("Rename “\(burst.origin)” to “\(text)”", replacing: "rename:\(id)")
     }
 
     func setPriority(_ id: UUID, _ priority: Priority?) {
         guard let item = item(id), item.priority != priority else { return }
         mutate(id, priority.map { "Set priority \($0.rawValue) for" } ?? "Clear priority of") { $0.priority = priority }
+    }
+
+    func setReminder(_ id: UUID, _ reminder: Date?) {
+        guard let i = items.firstIndex(where: { $0.id == id }), items[i].reminder != reminder else { return }
+        items[i].reminder = reminder
+        // Stepping through the date picker makes one commit message, not one per click.
+        let change = reminder.map { "Set reminder \(MarkdownCodec.reminderTag($0)) for" } ?? "Clear reminder of"
+        save("\(change) “\(items[i].text)”", replacing: "reminder:\(id)")
     }
 
     func delete(_ id: UUID) {
@@ -297,7 +312,10 @@ final class TodoStore: ObservableObject {
     /// Picks up edits you make to the file in another app (Obsidian, an editor, sync, git pull…).
     private func startWatching() {
         let timer = Timer(timeInterval: 1.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.reloadIfChangedOnDisk() }
+            Task { @MainActor in
+                self?.reloadIfChangedOnDisk()
+                self?.updateDueIDs()
+            }
         }
         RunLoop.main.add(timer, forMode: .common)
         watchTimer = timer
@@ -308,6 +326,11 @@ final class TodoStore: ObservableObject {
         load()
         // Commits edits made in other apps; a no-op when git itself changed the file.
         git.record("Edit outside Menial")
+    }
+
+    private func updateDueIDs() {
+        let due = Set(items.filter { $0.isDue() }.map(\.id))
+        if due != dueIDs { dueIDs = due }
     }
 
     private func modificationDate() -> Date? {

@@ -21,7 +21,7 @@ struct TodoRow: View {
                 withAnimation(.easeOut(duration: 0.15)) { store.toggle(item.id) }
             } label: {
                 Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 15, weight: item.priority == nil ? .regular : .semibold))
+                    .font(.system(size: 15, weight: item.shownPriority == nil ? .regular : .semibold))
                     .foregroundStyle(checkColor)
             }
             .buttonStyle(.plain)
@@ -45,13 +45,13 @@ struct TodoRow: View {
                 .padding(.horizontal, 6)
         )
         .overlay(alignment: .leading) {
-            if let priority = item.priority, !item.isDone {
+            if let priority = item.shownPriority, !item.isDone {
                 Capsule()
                     .fill(priority.color)
                     .frame(width: 3)
                     .padding(.vertical, 6)
                     .padding(.leading, 3)
-                    .help("Priority \(priority.rawValue) · \(priority.label)")
+                    .help(item.isDue() ? "Due, so treated as high priority" : "Priority \(priority.rawValue) · \(priority.label)")
             }
         }
         .contentShape(Rectangle())
@@ -69,7 +69,7 @@ struct TodoRow: View {
 
     private var checkColor: Color {
         if item.isDone { return item.priority?.color ?? .accentColor }
-        return item.priority?.color ?? .secondary
+        return item.shownPriority?.color ?? .secondary
     }
 
     // MARK: - Title / inline editing
@@ -111,6 +111,9 @@ struct TodoRow: View {
     /// Small icons for what's inside the details window.
     private var detailsSummary: some View {
         HStack(spacing: 10) {
+            if let reminder = item.reminder {
+                ReminderBadge(date: reminder, overdue: item.isDue())
+            }
             if !item.subtasks.isEmpty {
                 let done = item.subtasks.filter(\.isDone).count
                 badge("checklist", "\(done)/\(item.subtasks.count)")
@@ -167,6 +170,15 @@ struct TodoRow: View {
             }
             Divider()
             Text("None").tag(Priority?.none)
+        }
+        Menu("Remind Me") {
+            ForEach(ReminderPreset.allCases, id: \.self) { preset in
+                Button(preset.label) { store.setReminder(item.id, preset.date()) }
+            }
+            if item.reminder != nil {
+                Divider()
+                Button("Clear Reminder") { store.setReminder(item.id, nil) }
+            }
         }
         Button("Copy") {
             NSPasteboard.general.clearContents()
